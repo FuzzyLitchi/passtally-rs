@@ -84,6 +84,7 @@ impl RotatedPartialPiece {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum Piece {
     // A is TopBottom_LeftRight,
     // B is TopLeft_BottomRight,

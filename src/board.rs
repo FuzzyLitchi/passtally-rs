@@ -1,19 +1,10 @@
 use array_macro::array;
 use std::ops::Add;
-use thiserror::Error;
 
-use crate::piece::*;
+use crate::game::PasstallyError;
+use crate::piece::{Side::*, *};
 
-#[derive(Error, Debug)]
-pub enum PasstallyError {
-    #[error("The piece is outside of the board.")]
-    InvalidPosition,
-    #[error("The height for the two positions aren't the same.")]
-    BadHeight,
-    #[error("You cannot place a piece directly ontop of another piece.")]
-    BadPiece,
-}
-
+#[derive(Clone)]
 pub struct Board {
     top_pieces: [[RotatedPartialPiece; 6]; 6], // Used to direct lines
     tile_id: [[u32; 6]; 6], // Used to tell when you are moving from a one piece to another
@@ -22,7 +13,7 @@ pub struct Board {
 }
 
 impl Board {
-    fn new() -> Self {
+    pub fn default() -> Self {
         Board {
             top_pieces: array![array![RotatedPartialPiece::new(PartialPiece::TopBottom_LeftRight, 0); 6]; 6],
             tile_id: [[0; 6]; 6],
@@ -31,7 +22,7 @@ impl Board {
         }
     }
 
-    fn place_piece(&mut self, piece: PositionedPiece) -> Result<(), PasstallyError> {
+    pub fn place_piece(&mut self, piece: PositionedPiece) -> Result<(), PasstallyError> {
         let (pos1, pos2) = piece.positions();
 
         // Assert position is within board
@@ -74,6 +65,7 @@ impl Board {
         while pos == entry || !pos.on_edge() {
             // Where does this piece take us?
             let exit_side = self.top_piece(pos).pass(side);
+            println!("{:?} {:?}", pos, exit_side);
             // Calculate delta_position
             let delta_position = match exit_side {
                 Top => (0, -1),
@@ -150,7 +142,6 @@ impl Add for BoardPosition {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use Side::*;
 
     #[test]
     fn partial_pieces_sanity() {
@@ -169,7 +160,7 @@ mod tests {
 
     #[test]
     fn simple_board() {
-        let board = Board::new();
+        let board = Board::default();
 
         let a = board.enter(BoardPosition::new(2, 0), Side::Top);
         assert_eq!(a, BoardPosition::new(2, 5));
@@ -203,7 +194,7 @@ mod tests {
 
     #[test]
     fn place_pieces() {
-        let mut board = Board::new();
+        let mut board = Board::default();
         let piece = PositionedPiece {
             piece: Piece::Pink,
             position: BoardPosition::new(0, 0),
