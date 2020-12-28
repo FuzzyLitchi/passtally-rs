@@ -1,0 +1,12 @@
+[package]
+name = "passtally-lib"
+version = "0.1.0"
+authors = ["Polly Nielsen Boutet-Livoff <pollyboutet@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+num_enum = "0.5.1"
+array-macro = "1.0.5"
+thiserror = "1.0"
