@@ -1,5 +1,5 @@
 [package]
-name = "passtally-lib"
+name = "passtally-rs"
 version = "0.1.0"
 authors = ["Polly Nielsen Boutet-Livoff <pollyboutet@gmail.com>"]
 edition = "2018"
