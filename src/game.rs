@@ -1,7 +1,7 @@
 use rand::{prelude::SliceRandom, thread_rng};
 use thiserror::Error;
 
-use crate::board::Board;
+use crate::board::{Board, BoardPosition};
 use crate::piece::{Piece, PositionedPiece};
 
 /// A complete passtally game.
@@ -24,9 +24,20 @@ impl Game {
         let mut deck2 = deck1.split_off(14);
         let deck3 = deck2.split_off(14);
 
+        let mut player_markers = [None; 24];
+        player_markers[0] = Some(0);
+        player_markers[6] = Some(0);
+        player_markers[12] = Some(0);
+        player_markers[18] = Some(0);
+
+        player_markers[1] = Some(1);
+        player_markers[7] = Some(1);
+        player_markers[13] = Some(1);
+        player_markers[19] = Some(1);
+
         Game {
             board: Board::default(),
-            player_markers: [None; 24],
+            player_markers,
             player_count,
             round: 0,
             decks: [deck1, deck2, deck3],
@@ -71,12 +82,12 @@ impl Game {
 
         // Check that "from" isn't empty
         if self.player_markers[from as usize].is_none() {
-            return Err(PasstallyError::NoPlayerMarker);
+            return Err(PasstallyError::NoPlayerMarker(from));
         }
 
         // Check that "to" isn't occupied
         if self.player_markers[to as usize].is_some() {
-            return Err(PasstallyError::HasPlayerMarker);
+            return Err(PasstallyError::HasPlayerMarker(to));
         }
 
         // Check that there is at most one empty space between the two positions
@@ -137,15 +148,15 @@ pub struct Turn(pub Action, pub Action);
 #[derive(Error, Debug)]
 pub enum PasstallyError {
     #[error("The piece is outside of the board.")]
-    InvalidPosition,
+    InvalidPosition(BoardPosition),
     #[error("The height for the two positions aren't the same.")]
     BadHeight,
     #[error("You cannot place a piece directly ontop of another piece.")]
     BadPiece,
-    #[error("There is no player marker at the from position.")]
-    NoPlayerMarker,
-    #[error("There is already a player marker at the to position.")]
-    HasPlayerMarker,
+    #[error("There is no player marker at position {0}.")]
+    NoPlayerMarker(u8),
+    #[error("There is already a player marker at position {0}.")]
+    HasPlayerMarker(u8),
     #[error("There is more than one empty player marker field between the from and to position.")]
     TooFar,
 }

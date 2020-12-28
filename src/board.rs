@@ -26,8 +26,10 @@ impl Board {
         let (pos1, pos2) = piece.positions();
 
         // Assert position is within board
-        if !(pos1.valid() && pos2.valid()) {
-            return Err(PasstallyError::InvalidPosition);
+        if !pos1.valid() {
+            return Err(PasstallyError::InvalidPosition(pos1));
+        } else if !pos2.valid() {
+            return Err(PasstallyError::InvalidPosition(pos2));
         }
 
         // Assert height for the positions are the same.
