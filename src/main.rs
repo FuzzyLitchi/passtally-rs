@@ -24,7 +24,6 @@ impl Plugin for GamePlugin {
             .add_system(debug_keyboard.system())
             .add_system(process_passtally_move.system())
             .add_system(fit_camera_to_screen.system())
-            .add_system(count_pieces.system())
             .add_system(selection_system.system());
     }
 }
@@ -76,22 +75,19 @@ fn setup(
     for (i, player) in passtally.player_markers() {
         info!("Player {1} has a marker at {0}", i, player);
 
-        let pos = match i {
-            0..=5 => Vec2::new(i as f32, 0.0) * 16.0 + Vec2::new(0.0, -13.0),
-            6..=11 => Vec2::new(5.0, (i % 6) as f32) * 16.0 + Vec2::new(13.0, 0.0),
-            12..=17 => Vec2::new((5 - (i % 6)) as f32, 5.0) * 16.0 + Vec2::new(0.0, 13.0),
-            18..=23 => Vec2::new(0.0, (5 - (i % 6)) as f32) * 16.0 + Vec2::new(-13.0, 0.0),
-            _ => unreachable!(),
+        let player_marker = PlayerMarker {
+            pos: i as u8,
+            player,
         };
-        let pos = BOARD_BOTTOM_LEFT + pos;
 
         commands
             .spawn(SpriteSheetBundle {
                 texture_atlas: texture_atlases.get_handle("markers"),
-                sprite: TextureAtlasSprite::new(player as u32),
-                transform: Transform::from_translation(pos.extend(-1.0)),
+                sprite: TextureAtlasSprite::new(player_marker.player as u32),
+                transform: Transform::from_translation(player_marker.world_pos()),
                 ..Default::default()
             })
+            .with(player_marker)
             .with(Clickable {
                 bounding_box: Size::new(8.0, 8.0),
             });
@@ -145,11 +141,6 @@ fn fit_camera_to_screen(windows: Res<Windows>, mut query: Query<Mut<Transform>, 
     }
 }
 
-struct PieceMarker;
-fn count_pieces(query: Query<&PieceMarker>) {
-    // trace!("{} pieces!", query.iter().count());
-}
-
 fn debug_keyboard(keyboard: Res<Input<KeyCode>>, mut events: ResMut<Events<Action>>) {
     let mut rng = thread_rng();
     if keyboard.pressed(KeyCode::A) {
@@ -166,6 +157,29 @@ fn debug_keyboard(keyboard: Res<Input<KeyCode>>, mut events: ResMut<Events<Actio
             position: BoardPosition::new(rng.gen_range(0..6), rng.gen_range(0..6)),
             rotation: rng.gen_range(0..4),
         }));
+    } else if keyboard.pressed(KeyCode::B) {
+        events.send(Action::MovePlayerMarker(
+            rng.gen_range(0..24),
+            rng.gen_range(0..24),
+        ));
+    }
+}
+
+struct PlayerMarker {
+    pos: u8,
+    player: u8,
+}
+
+impl PlayerMarker {
+    fn world_pos(&self) -> Vec3 {
+        let pos = match self.pos {
+            0..=5 => Vec2::new(self.pos as f32, 0.0) * 16.0 + Vec2::new(0.0, -13.0),
+            6..=11 => Vec2::new(5.0, (self.pos % 6) as f32) * 16.0 + Vec2::new(13.0, 0.0),
+            12..=17 => Vec2::new((5 - (self.pos % 6)) as f32, 5.0) * 16.0 + Vec2::new(0.0, 13.0),
+            18..=23 => Vec2::new(0.0, (5 - (self.pos % 6)) as f32) * 16.0 + Vec2::new(-13.0, 0.0),
+            _ => unreachable!(),
+        };
+        (BOARD_BOTTOM_LEFT + pos).extend(-1.0)
     }
 }
 
@@ -175,6 +189,7 @@ fn process_passtally_move(
     mut reader: Local<EventReader<Action>>,
     mut passtally_game: ResMut<PasstallyGame>,
     texture_atlases: Res<Assets<TextureAtlas>>,
+    mut player_marker_query: Query<(&mut PlayerMarker, Mut<Transform>)>,
 ) {
     for action in reader.iter(&events) {
         trace!("Handling {:?}", action);
@@ -197,16 +212,21 @@ fn process_passtally_move(
                         );
                         transform.rotate(Quat::from_rotation_z(PI / 2.0 * piece.rotation as f32));
 
-                        commands
-                            .spawn(SpriteSheetBundle {
-                                texture_atlas: pieces_spritesheet_handle,
-                                sprite: TextureAtlasSprite::new(piece.piece.index()),
-                                transform,
-                                ..Default::default()
-                            })
-                            .with(PieceMarker);
+                        commands.spawn(SpriteSheetBundle {
+                            texture_atlas: pieces_spritesheet_handle,
+                            sprite: TextureAtlasSprite::new(piece.piece.index()),
+                            transform,
+                            ..Default::default()
+                        });
                     }
-                    _ => unimplemented!(),
+                    Action::MovePlayerMarker(from, to) => {
+                        for (mut player_marker, mut transform) in player_marker_query.iter_mut() {
+                            if player_marker.pos == *from {
+                                player_marker.pos = *to;
+                                transform.translation = player_marker.world_pos();
+                            }
+                        }
+                    }
                 }
             }
         }
