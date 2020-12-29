@@ -53,7 +53,7 @@ fn setup(
         })
         .current_entity()
         .unwrap();
-    commands.insert_resource(MyCursorState { camera_e: camera });
+    commands.insert_resource(SelectionSystemState { camera_e: camera });
 
     let board_texture = asset_server.load("passtally_board.png");
     commands
@@ -62,8 +62,7 @@ fn setup(
             ..Default::default()
         })
         .with(Transform::from_translation(BOARD_POSITION.extend(-10.0)))
-        .with(Board)
-        .with(Pickable);
+        .with(Board);
 
     let pieces_texture = asset_server.load("passtally_pieces.png");
     let pieces_spritesheet = TextureAtlas::from_grid(pieces_texture, Vec2::new(32.0, 16.0), 3, 3);
@@ -86,12 +85,16 @@ fn setup(
         };
         let pos = BOARD_BOTTOM_LEFT + pos;
 
-        commands.spawn(SpriteSheetBundle {
-            texture_atlas: texture_atlases.get_handle("markers"),
-            sprite: TextureAtlasSprite::new(player as u32),
-            transform: Transform::from_translation(pos.extend(-1.0)),
-            ..Default::default()
-        });
+        commands
+            .spawn(SpriteSheetBundle {
+                texture_atlas: texture_atlases.get_handle("markers"),
+                sprite: TextureAtlasSprite::new(player as u32),
+                transform: Transform::from_translation(pos.extend(-1.0)),
+                ..Default::default()
+            })
+            .with(Clickable {
+                bounding_box: Size::new(8.0, 8.0),
+            });
     }
 
     let mut rng = thread_rng();
@@ -101,12 +104,16 @@ fn setup(
         );
         transform.rotate(Quat::from_rotation_z(PI / 2.0));
 
-        commands.spawn(SpriteSheetBundle {
-            texture_atlas: texture_atlases.get_handle("pieces"),
-            sprite: TextureAtlasSprite::new(rng.gen_range(0..6)),
-            transform,
-            ..Default::default()
-        });
+        commands
+            .spawn(SpriteSheetBundle {
+                texture_atlas: texture_atlases.get_handle("pieces"),
+                sprite: TextureAtlasSprite::new(rng.gen_range(0..6)),
+                transform,
+                ..Default::default()
+            })
+            .with(Clickable {
+                bounding_box: Size::new(16.0, 32.0),
+            });
     }
     for i in 0..3 {
         let mut transform = Transform::from_translation(
@@ -206,21 +213,24 @@ fn process_passtally_move(
     }
 }
 
-struct MyCursorState {
+struct SelectionSystemState {
     // need to identify the main camera
     camera_e: Entity,
+    // Selected entity
 }
 
-struct Pickable;
+struct Clickable {
+    bounding_box: Size<f32>,
+}
 
 fn selection_system(
-    state: Res<MyCursorState>,
+    state: Res<SelectionSystemState>,
     mouse: Res<Input<MouseButton>>,
     // need to get window dimensions
     windows: Res<Windows>,
     // query to get camera components
     camera_query: Query<&Transform>,
-    query: Query<&Transform, With<Pickable>>,
+    query: Query<(&Clickable, &Transform)>,
 ) {
     if mouse.just_pressed(MouseButton::Left) {
         let window = windows.get_primary().unwrap();
@@ -238,8 +248,19 @@ fn selection_system(
             let world_position = world_position.truncate().truncate();
             debug!("World coords: {}/{}", world_position.x, world_position.y);
 
-            for transform in query.iter() {
-                if transform.translation.truncate().distance(world_position) < 10.0 {
+            for (clickable, transform) in query.iter() {
+                let click_pos = transform.translation.truncate();
+                let bounding_box = clickable.bounding_box;
+                let left = click_pos.x - bounding_box.width / 2.0;
+                let right = click_pos.x + bounding_box.width / 2.0;
+                let bottom = click_pos.y - bounding_box.height / 2.0;
+                let top = click_pos.y + bounding_box.height / 2.0;
+
+                if world_position.x > left
+                    && world_position.x < right
+                    && world_position.y > bottom
+                    && world_position.y < top
+                {
                     info!("Clicked!");
                 }
             }
