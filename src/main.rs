@@ -93,6 +93,34 @@ fn setup(
             ..Default::default()
         });
     }
+
+    let mut rng = thread_rng();
+    for i in 0..3 {
+        let mut transform = Transform::from_translation(
+            Vec2::new(144.0 - 96.0, (40 * i) as f32 + 24.0 - 64.0).extend(-1.0),
+        );
+        transform.rotate(Quat::from_rotation_z(PI / 2.0));
+
+        commands.spawn(SpriteSheetBundle {
+            texture_atlas: texture_atlases.get_handle("pieces"),
+            sprite: TextureAtlasSprite::new(rng.gen_range(0..6)),
+            transform,
+            ..Default::default()
+        });
+    }
+    for i in 0..3 {
+        let mut transform = Transform::from_translation(
+            Vec2::new(168.0 - 96.0, (40 * i) as f32 + 24.0 - 64.0).extend(-1.0),
+        );
+        transform.rotate(Quat::from_rotation_z(PI / 2.0));
+
+        commands.spawn(SpriteSheetBundle {
+            texture_atlas: texture_atlases.get_handle("pieces"),
+            sprite: TextureAtlasSprite::new(6),
+            transform,
+            ..Default::default()
+        });
+    }
     commands.insert_resource(passtally);
 }
 
@@ -166,9 +194,9 @@ fn process_passtally_move(
                             .spawn(SpriteSheetBundle {
                                 texture_atlas: pieces_spritesheet_handle,
                                 sprite: TextureAtlasSprite::new(piece.piece.index()),
+                                transform,
                                 ..Default::default()
                             })
-                            .with(transform)
                             .with(PieceMarker);
                     }
                     _ => unimplemented!(),
