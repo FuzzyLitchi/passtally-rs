@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::{log, prelude::*, render::camera::Camera};
+use bevy::{prelude::*, render::camera::Camera};
 use passtally_rs::{
     board::BoardPosition,
     game::{Action, Game as PasstallyGame},
@@ -21,11 +21,11 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_startup_system(setup.system())
             .add_event::<Action>()
-            .add_resource(PasstallyGame::new(2))
             .add_system(debug_keyboard.system())
             .add_system(process_passtally_move.system())
             .add_system(fit_camera_to_screen.system())
-            .add_system(count_pieces.system());
+            .add_system(count_pieces.system())
+            .add_system(selection_system.system());
     }
 }
 
@@ -35,7 +35,7 @@ const BOARD_POSITION: Vec2 = Vec2 {
     x: -SCREEN_SIZE.x / 2.0 + 64.0,
     y: -SCREEN_SIZE.y / 2.0 + 64.0,
 };
-const BOARD_TOP_LEFT: Vec2 = Vec2 {
+const BOARD_BOTTOM_LEFT: Vec2 = Vec2 {
     x: BOARD_POSITION.x - 40.0,
     y: BOARD_POSITION.y - 40.0,
 };
@@ -46,10 +46,14 @@ fn setup(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle {
-        transform: Transform::from_scale(Vec3::splat(1.0 / 6.0)),
-        ..Default::default()
-    });
+    let camera = commands
+        .spawn(Camera2dBundle {
+            transform: Transform::from_scale(Vec3::splat(1.0 / 6.0)),
+            ..Default::default()
+        })
+        .current_entity()
+        .unwrap();
+    commands.insert_resource(MyCursorState { camera_e: camera });
 
     let board_texture = asset_server.load("passtally_board.png");
     commands
@@ -58,11 +62,38 @@ fn setup(
             ..Default::default()
         })
         .with(Transform::from_translation(BOARD_POSITION.extend(-10.0)))
-        .with(Board);
+        .with(Board)
+        .with(Pickable);
 
     let pieces_texture = asset_server.load("passtally_pieces.png");
     let pieces_spritesheet = TextureAtlas::from_grid(pieces_texture, Vec2::new(32.0, 16.0), 3, 3);
     texture_atlases.set("pieces", pieces_spritesheet);
+
+    let markers = asset_server.load("player_markers.png");
+    let pieces_spritesheet = TextureAtlas::from_grid(markers, Vec2::new(8.0, 8.0), 2, 1);
+    texture_atlases.set("markers", pieces_spritesheet);
+
+    let passtally = PasstallyGame::new(2);
+    for (i, player) in passtally.player_markers() {
+        info!("Player {1} has a marker at {0}", i, player);
+
+        let pos = match i {
+            0..=5 => Vec2::new(i as f32, 0.0) * 16.0 + Vec2::new(0.0, -13.0),
+            6..=11 => Vec2::new(5.0, (i % 6) as f32) * 16.0 + Vec2::new(13.0, 0.0),
+            12..=17 => Vec2::new((5 - (i % 6)) as f32, 5.0) * 16.0 + Vec2::new(0.0, 13.0),
+            18..=23 => Vec2::new(0.0, (5 - (i % 6)) as f32) * 16.0 + Vec2::new(-13.0, 0.0),
+            _ => unreachable!(),
+        };
+        let pos = BOARD_BOTTOM_LEFT + pos;
+
+        commands.spawn(SpriteSheetBundle {
+            texture_atlas: texture_atlases.get_handle("markers"),
+            sprite: TextureAtlasSprite::new(player as u32),
+            transform: Transform::from_translation(pos.extend(-1.0)),
+            ..Default::default()
+        });
+    }
+    commands.insert_resource(passtally);
 }
 
 fn fit_camera_to_screen(windows: Res<Windows>, mut query: Query<Mut<Transform>, With<Camera>>) {
@@ -122,7 +153,7 @@ fn process_passtally_move(
 
                         let (pos1, pos2) = piece.positions();
                         let mut transform = Transform::from_translation(
-                            (BOARD_TOP_LEFT
+                            (BOARD_BOTTOM_LEFT
                                 + Vec2::new(
                                     16.0 * (pos1.x as f32 + pos2.x as f32) / 2.0,
                                     16.0 * (pos1.y as f32 + pos2.y as f32) / 2.0,
@@ -141,6 +172,47 @@ fn process_passtally_move(
                             .with(PieceMarker);
                     }
                     _ => unimplemented!(),
+                }
+            }
+        }
+    }
+}
+
+struct MyCursorState {
+    // need to identify the main camera
+    camera_e: Entity,
+}
+
+struct Pickable;
+
+fn selection_system(
+    state: Res<MyCursorState>,
+    mouse: Res<Input<MouseButton>>,
+    // need to get window dimensions
+    windows: Res<Windows>,
+    // query to get camera components
+    camera_query: Query<&Transform>,
+    query: Query<&Transform, With<Pickable>>,
+) {
+    if mouse.just_pressed(MouseButton::Left) {
+        let window = windows.get_primary().unwrap();
+        if let Some(cursor) = window.cursor_position() {
+            let camera_transform = camera_query.get(state.camera_e).unwrap();
+            // get the size of the window that the event is for
+            let size = Vec2::new(window.width() as f32, window.height() as f32);
+
+            // the default orthographic projection is in pixels from the center;
+            // just undo the translation
+            let p = cursor - size / 2.0;
+
+            // apply the camera transform
+            let world_position = camera_transform.compute_matrix() * p.extend(0.0).extend(1.0);
+            let world_position = world_position.truncate().truncate();
+            debug!("World coords: {}/{}", world_position.x, world_position.y);
+
+            for transform in query.iter() {
+                if transform.translation.truncate().distance(world_position) < 10.0 {
+                    info!("Clicked!");
                 }
             }
         }

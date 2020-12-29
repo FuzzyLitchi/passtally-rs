@@ -136,6 +136,14 @@ impl Game {
         self.player_markers[to as usize] = self.player_markers[from as usize].take();
         Ok(())
     }
+
+    pub fn player_markers(&self) -> impl Iterator<Item = (usize, u8)> + '_ {
+        self.player_markers
+            .iter()
+            .enumerate()
+            .filter(|(_, v)| v.is_some())
+            .map(|(i, v)| (i, v.unwrap()))
+    }
 }
 
 #[derive(Debug, Clone)]
