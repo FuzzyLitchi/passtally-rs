@@ -84,19 +84,26 @@ impl RotatedPartialPiece {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Piece {
     // A is TopBottom_LeftRight,
     // B is TopLeft_BottomRight,
     // C is TopRight_BottomLeft
-    Red,    // A A
-    Green,  // B B
-    Yellow, // C C
-    Blue,   // A B
-    Cyan,   // A C
-    Pink,   // C B
+    Red = 0,    // A A
+    Green = 3,  // B B
+    Yellow = 4, // C C
+    Blue = 5,   // A B
+    Cyan = 2,   // A C
+    Pink = 1,   // C B
 }
 
+impl Piece {
+    pub fn index(&self) -> u32 {
+        *self as u32
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct PositionedPiece {
     pub piece: Piece,
     pub rotation: u8,

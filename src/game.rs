@@ -6,7 +6,7 @@ use crate::piece::{Piece, PositionedPiece};
 
 /// A complete passtally game.
 pub struct Game {
-    board: Board,
+    pub board: Board,
     player_markers: [Option<u8>; 24],
     player_count: u8,
     /// Amount of rounds played
@@ -69,7 +69,7 @@ impl Game {
         }
     }
 
-    fn do_action(&mut self, action: Action) -> Result<(), PasstallyError> {
+    pub fn do_action(&mut self, action: Action) -> Result<(), PasstallyError> {
         match action {
             Action::PlacePiece(piece) => self.board.place_piece(piece),
             Action::MovePlayerMarker(from, to) => self.move_player_marker(from, to),
@@ -138,6 +138,7 @@ impl Game {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum Action {
     PlacePiece(PositionedPiece),
     MovePlayerMarker(u8, u8), // 0..=23

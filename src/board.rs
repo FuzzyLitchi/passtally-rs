@@ -8,7 +8,7 @@ use crate::piece::{Side::*, *};
 pub struct Board {
     top_pieces: [[RotatedPartialPiece; 6]; 6], // Used to direct lines
     tile_id: [[u32; 6]; 6], // Used to tell when you are moving from a one piece to another
-    next_id: u32,           // Id of the next piece, assured to be unique
+    pub next_id: u32,       // Id of the next piece, assured to be unique
     height: [[u32; 6]; 6],  // Height of specific partial piece, used to calculate score
 }
 
@@ -113,8 +113,8 @@ impl Board {
 /// 0,0 is at the top left. x is horizontal and y is vertical
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct BoardPosition {
-    x: i8,
-    y: i8,
+    pub x: i8,
+    pub y: i8,
 }
 
 impl BoardPosition {
