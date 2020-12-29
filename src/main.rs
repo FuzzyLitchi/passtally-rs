@@ -1,6 +1,7 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 
 use bevy::{prelude::*, render::camera::Camera};
+use bevy_easings::{Ease, EaseFunction, EasingType, EasingsPlugin};
 use passtally_rs::{
     board::BoardPosition,
     game::{Action, Game as PasstallyGame},
@@ -11,6 +12,7 @@ use rand::{thread_rng, Rng};
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
+        .add_plugin(EasingsPlugin)
         .add_plugin(GamePlugin)
         .run();
 }
@@ -157,7 +159,8 @@ fn debug_keyboard(keyboard: Res<Input<KeyCode>>, mut events: ResMut<Events<Actio
             position: BoardPosition::new(rng.gen_range(0..6), rng.gen_range(0..6)),
             rotation: rng.gen_range(0..4),
         }));
-    } else if keyboard.pressed(KeyCode::B) {
+    }
+    if keyboard.pressed(KeyCode::B) {
         events.send(Action::MovePlayerMarker(
             rng.gen_range(0..24),
             rng.gen_range(0..24),
@@ -179,7 +182,7 @@ impl PlayerMarker {
             18..=23 => Vec2::new(0.0, (5 - (self.pos % 6)) as f32) * 16.0 + Vec2::new(-13.0, 0.0),
             _ => unreachable!(),
         };
-        (BOARD_BOTTOM_LEFT + pos).extend(-1.0)
+        (BOARD_BOTTOM_LEFT + pos).extend(0.0)
     }
 }
 
@@ -189,7 +192,7 @@ fn process_passtally_move(
     mut reader: Local<EventReader<Action>>,
     mut passtally_game: ResMut<PasstallyGame>,
     texture_atlases: Res<Assets<TextureAtlas>>,
-    mut player_marker_query: Query<(&mut PlayerMarker, Mut<Transform>)>,
+    mut player_marker_query: Query<(Entity, &mut PlayerMarker, &Transform)>,
 ) {
     for action in reader.iter(&events) {
         trace!("Handling {:?}", action);
@@ -220,10 +223,21 @@ fn process_passtally_move(
                         });
                     }
                     Action::MovePlayerMarker(from, to) => {
-                        for (mut player_marker, mut transform) in player_marker_query.iter_mut() {
+                        for (entity, mut player_marker, transform) in player_marker_query.iter_mut()
+                        {
                             if player_marker.pos == *from {
+                                // Update position index.
                                 player_marker.pos = *to;
-                                transform.translation = player_marker.world_pos();
+
+                                // Move player marker in world.
+                                let easing = transform.ease_to(
+                                    Transform::from_translation(player_marker.world_pos()),
+                                    EaseFunction::QuadraticOut,
+                                    EasingType::Once {
+                                        duration: Duration::from_millis(500),
+                                    },
+                                );
+                                commands.insert_one(entity, easing);
                             }
                         }
                     }
@@ -281,7 +295,7 @@ fn selection_system(
                     && world_position.y > bottom
                     && world_position.y < top
                 {
-                    info!("Clicked!");
+                    info!("Clicked!!");
                 }
             }
         }
