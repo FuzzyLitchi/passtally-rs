@@ -129,7 +129,7 @@ fn setup(
     commands.insert_resource(passtally);
 }
 
-fn fit_camera_to_screen(windows: Res<Windows>, mut query: Query<Mut<Transform>, With<Camera>>) {
+fn fit_camera_to_screen(windows: Res<Windows>, mut query: Query<&mut Transform, With<Camera>>) {
     // Only one camera thanks.
     assert_eq!(query.iter_mut().count(), 1);
     for mut pos in query.iter_mut() {
